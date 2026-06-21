@@ -1,0 +1,74 @@
+{
+  "name": "sqlite-bolt",
+  "version": "1.0.0",
+  "description": "CI4-style Active Record ORM for SQLite (Capacitor, Web/sql.js, Electron)",
+  "sideEffects": false,
+  "type": "commonjs",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist",
+    "README.md",
+    "LICENSE",
+    "FEATURES.md",
+    "USAGE.md"
+  ],
+  "keywords": [
+    "sqlite",
+    "orm",
+    "active-record",
+    "query-builder",
+    "capacitor",
+    "sql.js",
+    "electron",
+    "codeigniter",
+    "offline",
+    "sync",
+    "typescript"
+  ],
+  "author": "pioneersingh321 <pioneersingh321@gmail.com>",
+  "license": "MIT",
+  "homepage": "https://github.com/pioneersingh321/sqlite-bolt#readme",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/pioneersingh321/sqlite-bolt.git"
+  },
+  "bugs": {
+    "url": "https://github.com/pioneersingh321/sqlite-bolt/issues"
+  },
+  "engines": {
+    "node": ">=16"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "scripts": {
+    "build": "tsc",
+    "lint": "tsc --noEmit",
+    "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
+    "prepublishOnly": "npm run clean && npm run build"
+  },
+  "devDependencies": {
+    "@capacitor-community/sqlite": "^8.1.0",
+    "@types/sql.js": "^1.4.11",
+    "typescript": "^5.4.0"
+  },
+  "peerDependencies": {
+    "@capacitor-community/sqlite": "^6.0.0",
+    "sql.js": "^1.14.0"
+  },
+  "peerDependenciesMeta": {
+    "jeep-sqlite": {
+      "optional": true
+    },
+    "sql.js": {
+      "optional": true
+    }
+  }
+}

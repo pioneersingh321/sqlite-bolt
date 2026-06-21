@@ -1,0 +1,8 @@
+# Source & config — only dist + docs ship to npm (see "files" in package.json)
+src/
+tsconfig.json
+agent-sql.md
+.gitignore
+*.log
+.vscode/
+.idea/
