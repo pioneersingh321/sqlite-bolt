@@ -18,7 +18,7 @@ and **Electron**, behind one unified API.
 ## Installation
 
 ```bash
-npm install sqlite-bolt
+npm install git+https://github.com/pioneersingh321/sqlite-bolt.git
 ```
 
 Then install the driver(s) for your platform:
