@@ -164,10 +164,15 @@ export class WebDriver extends Driver {
     try {
       const data: Uint8Array = this.db.export();
       if (this._opfsAvailable) {
-        await this.saveOPFS(data);
-      } else {
-        await idbSet(this.config.dbName, data);
+        try {
+          await this.saveOPFS(data);
+        } catch (e) {
+          if (this.config.debug) console.warn('[Bolt] OPFS save failed:', e);
+        }
       }
+      // Always write to IndexedDB so database is visible in DevTools -> Application -> IndexedDB
+      await idbSet(this.config.dbName, data);
+
       if (this.config.debug) {
         console.log(`[Bolt] WebDriver saved ${this.config.dbName} (${data.byteLength} bytes)`);
       }
@@ -179,11 +184,12 @@ export class WebDriver extends Driver {
   private async load(): Promise<Uint8Array | undefined> {
     try {
       if (this._opfsAvailable) {
-        return await this.loadOPFS();
+        const opfsData = await this.loadOPFS();
+        if (opfsData && opfsData.byteLength > 0) return opfsData;
       }
       return await idbGet(this.config.dbName);
     } catch {
-      return undefined;
+      return await idbGet(this.config.dbName);
     }
   }
 
