@@ -34,7 +34,7 @@ npm install sql.js
 ## Quick start
 
 ```typescript
-import { Bolt, BoltModel } from 'sqlite-bolt';
+import { Bolt, BoltModel } from '@bolt/sqlite';
 
 // 1. Create and register a connection (run once at bootstrap)
 const db = await Bolt.create({
@@ -92,11 +92,11 @@ await model.validateOrFail(data); // throws ValidationFailedError on failure
 `sqlite-bolt` ships as CommonJS and is consumable from both `require` and ESM `import`:
 
 ```js
-const { Bolt } = require('sqlite-bolt'); // CommonJS
+const { Bolt } = require('@bolt/sqlite'); // CommonJS
 ```
 
 ```js
-import { Bolt } from 'sqlite-bolt'; // ESM
+import { Bolt } from '@bolt/sqlite'; // ESM
 ```
 
 ## Documentation

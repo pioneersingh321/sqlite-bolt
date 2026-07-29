@@ -49,7 +49,7 @@ Your `package.json` will show:
 ```json
 {
   "dependencies": {
-    "sqlite-bolt": "file:../sqlite-bolt"
+    "@bolt/sqlite": "file:../sqlite-bolt"
   }
 }
 ```
@@ -68,7 +68,7 @@ Create a single database bootstrap file. Run this once on app startup.
 
 ```typescript
 // database/bootstrap.ts
-import { Bolt } from 'sqlite-bolt';
+import { Bolt } from '@bolt/sqlite';
 import { m001_users } from './migrations/001_users';
 import { m002_orders } from './migrations/002_orders';
 
@@ -108,7 +108,7 @@ Use when you don't need a model — ad-hoc queries, reporting, dynamic SQL.
 ### SELECT
 
 ```typescript
-import { Bolt } from 'sqlite-bolt';
+import { Bolt } from '@bolt/sqlite';
 
 // All active users
 const users = await Bolt.table('users')
@@ -332,7 +332,7 @@ Use when you have a defined schema, need validation, callbacks, soft deletes, or
 
 ```typescript
 // models/UserModel.ts
-import { BoltModel, rule } from 'sqlite-bolt';
+import { BoltModel, rule } from '@bolt/sqlite';
 
 export interface User {
   id: number;
@@ -496,7 +496,7 @@ Migrations are versioned, reversible schema changes. Run automatically on `Bolt.
 
 ```typescript
 // database/migrations/001_users.ts
-import { Migration } from 'sqlite-bolt';
+import { Migration } from '@bolt/sqlite';
 
 export const m001_users: Migration = {
   version: 1,
@@ -520,7 +520,7 @@ export const m001_users: Migration = {
 
 ```typescript
 // database/migrations/002_orders.ts
-import { Migration } from 'sqlite-bolt';
+import { Migration } from '@bolt/sqlite';
 
 export const m002_orders: Migration = {
   version: 2,
@@ -548,7 +548,7 @@ export const m002_orders: Migration = {
 
 ```typescript
 // database/bootstrap.ts
-import { Bolt } from 'sqlite-bolt';
+import { Bolt } from '@bolt/sqlite';
 import { m001_users } from './migrations/001_users';
 import { m002_orders } from './migrations/002_orders';
 
@@ -594,7 +594,7 @@ await schema.dropTable('temp_table');
 Wrap multiple operations in ACID transactions. Auto-rollback on error.
 
 ```typescript
-import { Bolt } from 'sqlite-bolt';
+import { Bolt } from '@bolt/sqlite';
 
 await Bolt.db().transaction(async (trx) => {
   // Deduct inventory
@@ -646,7 +646,7 @@ Validation runs automatically before `insert()` and `update()` on models.
 ### Built-in Rules
 
 ```typescript
-import { rule } from 'sqlite-bolt';
+import { rule } from '@bolt/sqlite';
 
 protected validationRules = {
   // Required field
@@ -678,7 +678,7 @@ protected validationRules = {
 ### Custom Rules
 
 ```typescript
-import { ValidationRule } from 'sqlite-bolt';
+import { ValidationRule } from '@bolt/sqlite';
 
 const rule = {
   // ... built-in rules ...
@@ -724,7 +724,7 @@ import {
   UniqueViolationError,
   ValidationFailedError,
   MigrationError
-} from 'sqlite-bolt';
+} from '@bolt/sqlite';
 
 try {
   await users.insert({ email: 'dup@example.com' });

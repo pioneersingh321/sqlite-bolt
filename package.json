@@ -1,5 +1,5 @@
 {
-  "name": "sqlite-bolt",
+  "name": "@bolt/sqlite",
   "version": "1.0.0",
   "description": "CI4-style Active Record ORM for SQLite (Capacitor, Web/sql.js, Electron)",
   "sideEffects": false,
