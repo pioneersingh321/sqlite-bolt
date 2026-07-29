@@ -14,6 +14,7 @@
   },
   "files": [
     "dist",
+    "src",
     "README.md",
     "LICENSE",
     "FEATURES.md",
@@ -50,6 +51,7 @@
   },
   "scripts": {
     "build": "tsc",
+    "prepare": "npm run build",
     "lint": "tsc --noEmit",
     "clean": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\"",
     "prepublishOnly": "npm run clean && npm run build"
