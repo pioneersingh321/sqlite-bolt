@@ -19,30 +19,10 @@ export class BackgroundSync {
     if (this.options.enabled === false) return;
     const interval = this.options.intervalMs ?? 5 * 60 * 1000;
 
-    // Try Capacitor Background Task (optional peer dep — safely loaded without bundler errors)
+    // Optional Capacitor BackgroundTask integration (resolved via global Capacitor bridge to avoid Webpack warnings)
     try {
-      let bgTaskPlugin: any = null;
-
-      // 1. Check window.Capacitor.Plugins (native bridge)
       const winCap = typeof window !== 'undefined' ? (window as any).Capacitor : null;
-      if (winCap?.Plugins?.BackgroundTask) {
-        bgTaskPlugin = winCap.Plugins.BackgroundTask;
-      } else if (winCap?.isPluginAvailable?.('BackgroundTask')) {
-        // 2. Dynamic import with webpackIgnore so Webpack will not fail if missing
-        const capawesomePkg = '@capawesome/capacitor-background-task';
-        const communityPkg = '@capacitor-community/background-tasks';
-        try {
-          const mod = await import(/* webpackIgnore: true */ capawesomePkg);
-          bgTaskPlugin = mod?.BackgroundTask;
-        } catch {
-          try {
-            const mod = await import(/* webpackIgnore: true */ communityPkg);
-            bgTaskPlugin = mod?.BackgroundTask;
-          } catch {
-            // Plugin not installed
-          }
-        }
-      }
+      const bgTaskPlugin = winCap?.Plugins?.BackgroundTask;
 
       if (bgTaskPlugin && typeof bgTaskPlugin.beforeExit === 'function') {
         this.handlerRef = await bgTaskPlugin.beforeExit(async () => {
@@ -53,7 +33,7 @@ export class BackgroundSync {
         });
       }
     } catch {
-      // Plugin not installed — fall through to interval
+      // Background task unavailable — gracefully fall through to interval
     }
 
     // Foreground interval fallback (also works on web)
