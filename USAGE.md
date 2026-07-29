@@ -346,13 +346,13 @@ export interface User {
 }
 
 export class UserModel extends BoltModel<User> {
-  protected table = 'users';
-  protected primaryKey = 'id';
-  protected allowedFields = ['name', 'email', 'role', 'status'];
-  protected softDelete = true;
-  protected timestamps = true;
+  protected override table = 'users';
+  protected override primaryKey = 'id';
+  protected override allowedFields = ['name', 'email', 'role', 'status'];
+  protected override softDelete = true;
+  protected override timestamps = true;
 
-  protected validationRules = {
+  protected override validationRules = {
     name: [rule.required(), rule.minLength(2)],
     email: [rule.required(), rule.email(), rule.unique('users', 'email')],
     role: [rule.required(), rule.inArray(['admin', 'user'])],

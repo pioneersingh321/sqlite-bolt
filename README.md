@@ -58,9 +58,9 @@ const activeUsers = await Bolt.table('users')
 interface User { id: number; name: string; email: string; status: string; }
 
 class UserModel extends BoltModel<User> {
-  protected table = 'users';
-  protected allowedFields = ['name', 'email', 'status'];
-  protected validationRules = {
+  protected override table = 'users';
+  protected override allowedFields = ['name', 'email', 'status'];
+  protected override validationRules = {
     email: [rule.required(), rule.email()],
   };
 }
