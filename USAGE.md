@@ -358,6 +358,13 @@ export class UserModel extends BoltModel<User> {
     role: [rule.required(), rule.inArray(['admin', 'user'])],
     status: [rule.inArray(['active', 'suspended'])]
   };
+}
+```
+
+> **Note on TypeScript Strict Mode (`noImplicitOverride`):**  
+> Angular, Ionic, and strict TypeScript setups enable `"noImplicitOverride": true` by default in `tsconfig.json`. When overriding base model properties (`table`, `primaryKey`, `allowedFields`, `validationRules`, `softDelete`, `timestamps`), use the `override` modifier (e.g. `protected override allowedFields = [...]`). If `"noImplicitOverride": false` is set in your `tsconfig.json`, the `override` keyword is optional.
+
+### Model Callbacks
 
   // Callback: modify data before insert
   protected async beforeInsert(data: Partial<User>) {

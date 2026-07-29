@@ -70,6 +70,8 @@ const id = await users.insert({ name: 'Alice', email: 'alice@example.com', statu
 const user = await users.find(id);
 ```
 
+> *Note: Modern Angular & Ionic projects require the `override` modifier when `"noImplicitOverride": true` is enabled in `tsconfig.json`.*
+
 ## Validation
 
 `validate()` follows the CodeIgniter 4 contract — it returns a boolean and collects
