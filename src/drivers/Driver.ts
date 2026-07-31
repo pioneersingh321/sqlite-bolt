@@ -11,4 +11,6 @@ export abstract class Driver {
   abstract rollback(): Promise<void>;
   /** Optional: force-persist database state (used by WebDriver). */
   persist?(): Promise<void>;
+  /** Optional: delete/clear database storage. */
+  deleteDatabase?(): Promise<void>;
 }

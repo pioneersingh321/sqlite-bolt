@@ -77,6 +77,14 @@ export class Database implements Queryable {
     this._open = false;
   }
 
+  /** Delete and clear underlying database storage (if supported by driver). */
+  async deleteDatabase(): Promise<void> {
+    await this.close();
+    if (this.driver.deleteDatabase) {
+      await this.driver.deleteDatabase();
+    }
+  }
+
   /** Force-persist database state (no-op for drivers that don't support it). */
   async persist(): Promise<void> {
     if (this.driver.persist) {

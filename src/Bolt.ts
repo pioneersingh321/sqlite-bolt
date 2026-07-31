@@ -96,4 +96,41 @@ export class Bolt {
   static async execute(sql: string, params?: any[]): Promise<ExecuteResult> {
     return this.connection().execute(sql, params);
   }
+
+  /** Delete and clear storage for a database connection or config. */
+  static async deleteDatabase(configOrName: BoltConfig | string): Promise<void> {
+    if (typeof configOrName === 'string') {
+      const db = this.connections.get(configOrName);
+      if (db) {
+        await db.deleteDatabase();
+        this.connections.delete(configOrName);
+      }
+      return;
+    }
+
+    const config = configOrName;
+    for (const [key, db] of this.connections.entries()) {
+      if ((db as any).config?.dbName === config.dbName) {
+        await db.deleteDatabase();
+        this.connections.delete(key);
+        return;
+      }
+    }
+
+    let driver;
+    switch (config.driver) {
+      case 'web':
+        driver = new WebDriver(config);
+        break;
+      case 'capacitor':
+        driver = new CapacitorDriver(config);
+        break;
+      case 'electron':
+        driver = new ElectronDriver(config);
+        break;
+    }
+    if (driver && driver.deleteDatabase) {
+      await driver.deleteDatabase();
+    }
+  }
 }

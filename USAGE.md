@@ -1,337 +1,285 @@
-# SqliteBolt — Usage Guide & Documentation
+<p align="center">
+  <img src="./assets/sqlite-bolt-banner.png" alt="sqlite-bolt Banner" width="100%" style="max-width: 800px; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.3);" />
+</p>
 
-**Version:** v1.0  
-**Scope:** Registry + Model + Builder  
-**Runtime:** TypeScript / ES2022+  
-**Driver:** `@capacitor-community/sqlite`
+<h1 align="center">📖 sqlite-bolt — Comprehensive Usage Guide</h1>
 
----
-
-## Table of Contents
-
-1. [Installation](#installation)
-2. [Project Bootstrap](#project-bootstrap)
-3. [Standalone QueryBuilder](#standalone-querybuilder)
-4. [BoltModel (CI4-Style)](#boltmodel-ci4-style)
-5. [Migrations](#migrations)
-6. [Transactions](#transactions)
-7. [Validation](#validation)
-8. [Error Handling](#error-handling)
-9. [Multi-Database](#multi-database)
-10. [Advanced Patterns](#advanced-patterns)
-11. [Capacitor Integration](#capacitor-integration)
-12. [Troubleshooting](#troubleshooting)
+<p align="center">
+  <b>Complete Developer Manual & API Reference for <code>@bolt/sqlite</code></b><br>
+  <i>Active Record ORM • Fluent QueryBuilder • Cross-Platform Drivers • Offline Sync Engine</i>
+</p>
 
 ---
 
-## Installation
+## 🧭 Navigation Index
 
-SqliteBolt is not on npm. Install from local source.
+| Section | Description |
+| :--- | :--- |
+| 1. [Installation & Driver Setup](#1-installation--driver-setup) | Installing via Git/npm and platform peer drivers (`@capacitor-community/sqlite`, `sql.js`). |
+| 2. [Project Bootstrap & Config](#2-project-bootstrap--database-configuration) | Initializing database connections, `BoltConfig` options, and static registry registration. |
+| 3. [Standalone QueryBuilder](#3-standalone-querybuilder) | `SELECT`, `WHERE`, `JOIN`, aggregations, pagination, mutations, `UPSERT`, and query explain. |
+| 4. [CI4 Active Record BoltModel](#4-ci4-active-record-boltmodel) | Model definitions, TypeScript strict overrides, callbacks, soft deletes, and entity patterns. |
+| 5. [Relations & Eager Loading](#5-relations--eager-loading) | `belongsTo`, `hasMany`, `hasOne`, eager loading (`with()`), and lazy hydration (`hydrate()`). |
+| 6. [Migrations & Schema Builder](#6-migrations--schema-builder) | Versioned schema migration runner, table definitions, column types, and schema alterations. |
+| 7. [Schema Introspection API](#7-schema-introspection-api) | Runtime database metadata inspection (`tables`, `columns`, `indexes`, `foreignKeys`). |
+| 8. [ACID Transactions](#8-acid-transactions) | Multi-query atomic transactions with automated error rollback (`Bolt.db().transaction()`). |
+| 9. [Validation System](#9-validation-system) | Built-in rules, custom synchronous & async validation, `validate()` and `validateOrFail()`. |
+| 10. [Offline & Sync Engine](#10-offline--sync-engine) | Change tracking (`_bolt_changes`), offline queue, sync push/pull adapter, and background sync. |
+| 11. [Multi-Database Setup](#11-multi-database-setup) | Managing multiple concurrent SQLite database connections using `dbGroup`. |
+| 12. [Native Android Integration](#12-native-android-integration-java--kotlin) | Querying database directly from Android background services using `BoltNativeDb` (Java/Kotlin). |
+| 13. [Developer Experience & Debugging](#13-developer-experience--debugging) | SQL logger, query execution duration, `.explain()`, and busy lock retry backoff configurations. |
+| 14. [Error Handling & Troubleshooting](#14-error-handling--troubleshooting) | `BoltError` exception hierarchy and comprehensive troubleshooting matrix. |
+| 15. [Quick Reference Card](#15-quick-reference-card) | Copy-pasteable syntax cheat sheet for common operations. |
 
-### Step 1: Build the plugin
+---
+
+## 1. Installation & Driver Setup
+
+### Step 1: Install Package
+
+Install `@bolt/sqlite` directly from the Git repository:
 
 ```bash
-cd /path/to/sqlite-bolt
-npm install
-npm run build
+npm install git+https://github.com/pioneersingh321/sqlite-bolt.git
 ```
 
-Ensure `dist/` folder is created with `index.js`, `index.d.ts`.
-
-### Step 2: Install into your app
+Or when installed from local source / npm registry:
 
 ```bash
-cd /path/to/your-capacitor-app
-npm install /absolute/path/to/sqlite-bolt
+npm install @bolt/sqlite
 ```
 
-Your `package.json` will show:
-```json
-{
-  "dependencies": {
-    "@bolt/sqlite": "file:../sqlite-bolt"
-  }
-}
-```
+### Step 2: Install Platform Drivers
 
-### Step 3: Install peer dependency
+`@bolt/sqlite` uses peer dependencies for database drivers. Install the driver required for your target platform:
 
+#### 📱 Mobile (Capacitor for iOS / Android)
 ```bash
 npm install @capacitor-community/sqlite
 ```
 
+#### 🌐 Web (Browser WASM with OPFS + IndexedDB fallback)
+```bash
+npm install sql.js
+npm install --save-dev @types/sql.js
+```
+
+> [!NOTE]
+> Web builds use WebAssembly (`sql.js`) with Origin Private File System (OPFS) and IndexedDB fallbacks for persistent local browser storage.
+
 ---
 
-## Project Bootstrap
+## 2. Project Bootstrap & Database Configuration
 
-Create a single database bootstrap file. Run this once on app startup.
+Initialize and register your database connection during application startup (e.g., `main.ts`, `app.component.ts`, or a dedicated `database/bootstrap.ts`).
+
+### Configuration Options (`BoltConfig`)
+
+| Option | Type | Default | Description |
+| :--- | :--- | :--- | :--- |
+| `dbName` | `string` | **(Required)** | Name of the SQLite database file (e.g., `'app_v1'`). |
+| `driver` | `'capacitor' \| 'web' \| 'electron'` | **(Required)** | Target SQLite platform driver. |
+| `dbLocation` | `string` | `undefined` | Custom location path for mobile or electron storage. |
+| `version` | `number` | `1` | Schema version number for automatic migration execution. |
+| `migrations` | `Migration[]` | `[]` | Array of versioned schema migration definitions. |
+| `debug` | `boolean` | `false` | Log formatted SQL queries and execution duration to console. |
+| `camelCase` | `boolean` | `false` | Automatically transform DB snake_case columns to camelCase in object results. |
+| `cache` | `{ enabled: boolean; ttl: number; maxSize: number }` | `undefined` | Query result caching parameters. |
+| `sqlJsWasmPath` | `string` | `undefined` | Custom URL/path to `sql-wasm.wasm` file for web builds. |
+| `encrypted` | `boolean` | `false` | Enable SQLCipher database encryption (Capacitor driver). |
+| `secret` | `string` | `undefined` | Encryption passphrase for encrypted databases. |
+| `biometricAuth` | `boolean` | `false` | Require biometric authentication before unlocking database (Capacitor). |
+| `retry` | `RetryConfig` | `undefined` | Automatic retry config on busy/locked errors (`maxRetries`, `delayMs`, `backoff`). |
+| `sync` | `SyncConfig` | `undefined` | Offline synchronization engine configuration (`endpoint`, `conflictStrategy`, etc.). |
+
+### Bootstrap Example
 
 ```typescript
 // database/bootstrap.ts
 import { Bolt } from '@bolt/sqlite';
-import { m001_users } from './migrations/001_users';
-import { m002_orders } from './migrations/002_orders';
+import { m001_create_users } from './migrations/001_create_users';
+import { m002_create_orders } from './migrations/002_create_orders';
 
 export async function initDatabase() {
   const db = await Bolt.create({
     dbName: 'app_v1',
-    driver: 'capacitor',
+    driver: 'capacitor', // Options: 'capacitor' | 'web' | 'electron'
     version: 2,
-    migrations: [m001_users, m002_orders],
-    debug: true,              // logs SQL + timing to console
-    camelCase: false,         // keep snake_case from DB
-    encrypted: false
+    migrations: [m001_create_users, m002_create_orders],
+    debug: true,
+    retry: {
+      maxRetries: 5,
+      delayMs: 100,
+      backoff: 'exponential'
+    }
   });
 
+  // Register as 'default' connection in static registry
   Bolt.addConnection('default', db);
-  console.log('[SqliteBolt] Database initialized');
+  console.log('[Bolt] Database initialized successfully.');
 }
 ```
 
 ```typescript
-// main.ts or App.tsx
+// main.ts
 import { initDatabase } from './database/bootstrap';
 
-async function main() {
-  await initDatabase();
-  // app continues...
-}
-main();
+initDatabase().then(() => {
+  // Start UI application framework
+});
 ```
 
 ---
 
-## Standalone QueryBuilder
+## 3. Standalone QueryBuilder
 
-Use when you don't need a model — ad-hoc queries, reporting, dynamic SQL.
+The QueryBuilder can be used directly for ad-hoc queries, reporting, custom joins, aggregations, and raw SQL execution without declaring a model class.
 
-### SELECT
+### SELECT & WHERE Clauses
 
 ```typescript
 import { Bolt } from '@bolt/sqlite';
 
-// All active users
-const users = await Bolt.table('users')
+// Basic SELECT with filtering and sorting
+const activeUsers = await Bolt.table('users')
+  .select('id', 'name', 'email')
   .where('status', 'active')
   .orderBy('created_at', 'DESC')
   .get();
 
-// First admin
+// First matching row
 const admin = await Bolt.table('users')
   .where('role', 'admin')
   .first();
 
-// Specific columns only
-const emails = await Bolt.table('users')
-  .select('id', 'email')
-  .whereNotNull('email_verified_at')
+// WHERE IN / NOT IN
+const targetRoles = await Bolt.table('users')
+  .whereIn('role', ['admin', 'editor', 'manager'])
+  .whereNotIn('status', ['suspended', 'banned'])
   .get();
 
-// LIKE search
-const search = await Bolt.table('products')
+// LIKE Search
+const searchResults = await Bolt.table('products')
   .whereLike('name', '%laptop%')
   .orLike('description', '%laptop%')
   .get();
 
-// WHERE IN
-const activeRoles = await Bolt.table('users')
-  .whereIn('role', ['admin', 'editor', 'moderator'])
-  .where('status', 'active')
+// NULL checks & BETWEEN
+const verified = await Bolt.table('users')
+  .whereNotNull('email_verified_at')
+  .whereBetween('age', [18, 65])
   .get();
 
-// BETWEEN (date range)
-const recent = await Bolt.table('orders')
-  .whereBetween('created_at', ['2024-01-01', '2024-12-31'])
-  .where('status', 'completed')
-  .get();
-
-// Complex AND/OR
-const complex = await Bolt.table('users')
-  .where('status', 'active')
-  .where('role', '!=', 'banned')
-  .orWhere('role', 'superadmin')  // (status=active AND role!=banned) OR role=superadmin
-  .get();
-
-// Raw WHERE
-const raw = await Bolt.table('logs')
+// Raw WHERE conditions
+const recentLogs = await Bolt.table('logs')
   .whereRaw("created_at > datetime('now', '-7 days')")
   .where('level', 'error')
   .get();
 ```
 
-### JOIN
+### JOINs & Aggregations
 
 ```typescript
-const ordersWithUsers = await Bolt.table('orders')
+// INNER JOIN
+const orders = await Bolt.table('orders')
   .select('orders.id', 'orders.total', 'users.name as customer_name')
   .join('users', 'orders.user_id = users.id')
   .where('orders.status', 'pending')
-  .orderBy('orders.created_at', 'DESC')
   .get();
 
-// LEFT JOIN
-const allUsersWithOrders = await Bolt.table('users')
-  .select('users.*', 'COUNT(orders.id) as order_count')
+// LEFT JOIN with GROUP BY & HAVING
+const userOrderCounts = await Bolt.table('users')
+  .select('users.id', 'users.name', 'COUNT(orders.id) as order_count')
   .leftJoin('orders', 'users.id = orders.user_id')
   .groupBy('users.id')
+  .having('order_count', '>', 5)
   .get();
-```
 
-### Aggregation
+// Aggregation Methods
+const totalUsers = await Bolt.table('users').countAllResults();
 
-```typescript
-// Count
-const total = await Bolt.table('users').countAllResults();
-const activeCount = await Bolt.table('users').where('status', 'active').countAllResults();
-
-// SUM / AVG / MIN / MAX
-const stats = await Bolt.table('orders')
+const metrics = await Bolt.table('orders')
   .selectSum('total', 'revenue')
   .selectAvg('total', 'avg_order')
   .selectMin('total', 'min_order')
   .selectMax('total', 'max_order')
   .where('status', 'completed')
   .first();
-// stats: { revenue: 45000, avg_order: 150, min_order: 10, max_order: 2000 }
-
-// GROUP BY
-const report = await Bolt.table('orders')
-  .select('status')
-  .selectSum('total', 'amount')
-  .groupBy('status')
-  .having('amount', '>', 1000)
-  .get();
 ```
 
 ### Pagination
 
 ```typescript
+// Pagination helper: page(pageNumber, perPage)
 const page1 = await Bolt.table('products')
   .where('stock', '>', 0)
   .orderBy('name', 'ASC')
-  .page(1, 20)        // page 1, 20 per page
-  .get();
-
-// Manual limit/offset
-const page2 = await Bolt.table('products')
-  .limit(20)
-  .offset(20)
+  .page(1, 20)
   .get();
 ```
 
-### INSERT
+### Mutations (INSERT, UPDATE, DELETE, UPSERT)
 
 ```typescript
-// Single
+// Single INSERT
 const newId = await Bolt.table('users').insert({
-  name: 'Jane Doe',
-  email: 'jane@example.com',
-  role: 'user',
-  status: 'active'
+  name: 'John Doe',
+  email: 'john@example.com',
+  role: 'user'
 });
-console.log('Created user:', newId);  // 42
 
-// Batch
-const count = await Bolt.table('users').insertBatch([
-  { name: 'User A', email: 'a@x.com', role: 'user' },
-  { name: 'User B', email: 'b@x.com', role: 'user' },
-  { name: 'User C', email: 'c@x.com', role: 'admin' }
+// Batch INSERT in chunked transactions
+await Bolt.table('logs').insertBatch([
+  { level: 'info', message: 'User logged in' },
+  { level: 'warn', message: 'Disk space low' }
 ], 100);
-```
 
-### UPDATE
-
-```typescript
-// Update by condition
+// UPDATE
 await Bolt.table('users')
   .set('status', 'suspended')
   .where('last_login', '<', '2024-01-01')
   .update();
 
-// Update multiple columns
-await Bolt.table('users')
-  .set({
-    status: 'active',
-    email_verified_at: new Date().toISOString()
-  })
-  .where('id', 5)
-  .update();
-```
-
-### DELETE
-
-```typescript
-// Delete by condition
+// DELETE
 await Bolt.table('sessions')
   .where('expires_at', '<', new Date().toISOString())
   .delete();
 
-// Hard delete specific row
-await Bolt.table('logs')
-  .where('level', 'debug')
-  .delete();
-```
-
-### UPSERT
-
-```typescript
-// INSERT OR REPLACE
-await Bolt.table('settings').replace({
-  key: 'theme',
-  value: 'dark'
-});
-
-// INSERT ... ON CONFLICT DO UPDATE
+// UPSERT (INSERT ... ON CONFLICT DO UPDATE)
 await Bolt.table('users').upsert({
   id: 1,
   name: 'Updated Name',
-  email: 'same@email.com'
-}, 'id');  // if id=1 exists, update; else insert
+  email: 'updated@example.com'
+}, 'id');
 ```
 
-### Raw Queries (Escape Hatch)
+### Raw SQL & EXPLAIN
 
 ```typescript
-// SELECT
-const rows = await Bolt.query(
-  `SELECT u.*, COUNT(o.id) as order_count
-   FROM users u
-   LEFT JOIN orders o ON o.user_id = u.id
-   WHERE u.created_at > ?
-   GROUP BY u.id`,
-  ['2024-01-01']
+// Raw SELECT query
+const rows = await Bolt.query<User>(
+  'SELECT * FROM users WHERE status = ? AND age >= ?',
+  ['active', 21]
 );
 
-// INSERT/UPDATE/DELETE
-await Bolt.execute(
-  'UPDATE inventory SET qty = qty - ? WHERE sku = ? AND qty >= ?',
-  [1, 'SKU-123', 1]
-);
-```
+// Raw execute statement
+await Bolt.execute('UPDATE inventory SET stock = stock - ? WHERE id = ?', [2, 101]);
 
-### Debug: See Compiled SQL
-
-```typescript
-const sql = Bolt.table('users')
-  .where('status', 'active')
-  .whereIn('role', ['admin', 'editor'])
-  .orderBy('created_at', 'DESC')
-  .getCompiledSelect();
-
-console.log(sql);
-// SELECT * FROM "users" WHERE "status" = ? AND "role" IN (?, ?) ORDER BY "created_at" DESC
+// Query Plan Inspection
+const queryPlan = await Bolt.table('users')
+  .where('email', 'admin@example.com')
+  .explain();
 ```
 
 ---
 
-## BoltModel (CI4-Style)
+## 4. CI4 Active Record BoltModel
 
-Use when you have a defined schema, need validation, callbacks, soft deletes, or timestamps.
+`BoltModel<T>` provides full Active Record capability including soft deletes, automatic timestamps, lifecycle callbacks, and validation.
 
-### Define a Model
+### Model Definition
 
 ```typescript
-// models/UserModel.ts
 import { BoltModel, rule } from '@bolt/sqlite';
 
 export interface User {
@@ -340,9 +288,9 @@ export interface User {
   email: string;
   role: 'admin' | 'user';
   status: 'active' | 'suspended';
-  created_at: string;
-  updated_at: string;
-  deleted_at: string | null;
+  created_at?: string;
+  updated_at?: string;
+  deleted_at?: string | null;
 }
 
 export class UserModel extends BoltModel<User> {
@@ -355,628 +303,367 @@ export class UserModel extends BoltModel<User> {
   protected override validationRules = {
     name: [rule.required(), rule.minLength(2)],
     email: [rule.required(), rule.email(), rule.unique('users', 'email')],
-    role: [rule.required(), rule.inArray(['admin', 'user'])],
-    status: [rule.inArray(['active', 'suspended'])]
+    role: [rule.inArray(['admin', 'user'])],
   };
-}
-```
 
-> **Note on TypeScript Strict Mode (`noImplicitOverride`):**  
-> Angular, Ionic, and strict TypeScript setups enable `"noImplicitOverride": true` by default in `tsconfig.json`. When overriding base model properties (`table`, `primaryKey`, `allowedFields`, `validationRules`, `softDelete`, `timestamps`), use the `override` modifier (e.g. `protected override allowedFields = [...]`). If `"noImplicitOverride": false` is set in your `tsconfig.json`, the `override` keyword is optional.
-
-### Model Callbacks
-
-  // Callback: modify data before insert
-  protected async beforeInsert(data: Partial<User>) {
-    if (data.email) {
-      data.email = data.email.toLowerCase().trim();
-    }
+  // Lifecycle Callbacks
+  protected override async beforeInsert(data: Partial<User>) {
+    if (data.email) data.email = data.email.toLowerCase().trim();
     return data;
   }
 
-  // Callback: side effects after insert
-  protected async afterInsert(data: User, id: number) {
-    console.log(`[Audit] User ${id} created`);
+  protected override async afterInsert(data: User, id: number) {
+    console.log(`[Audit] User #${id} created`);
   }
 
-  // Callback: guard delete
-  protected async beforeDelete(id: number) {
+  protected override async beforeDelete(id: number) {
     const user = await this.find(id);
-    if (user?.role === 'admin') {
-      console.warn('Cannot delete admin users');
-      return false;  // cancel delete
-    }
+    if (user?.role === 'admin') return false; // Prevent admin deletion
     return true;
   }
 }
 ```
 
-### Use the Model
+> [!IMPORTANT]
+> When `"noImplicitOverride": true` is enabled in your `tsconfig.json` (standard in modern Angular & Ionic setups), you MUST include the `override` keyword on model property overrides.
+
+### Lifecycle Callbacks Overview
+
+| Callback | Timing | Parameter(s) | Return Value |
+| :--- | :--- | :--- | :--- |
+| `beforeInsert` | Before record insertion | `Partial<T>` | `Promise<Partial<T>>` |
+| `afterInsert` | After record insertion | `data: T, id: PrimaryKey` | `Promise<void>` |
+| `beforeUpdate` | Before record update | `data: Partial<T>, id?: PrimaryKey` | `Promise<Partial<T>>` |
+| `afterUpdate` | After record update | `data: Partial<T>, affectedRows: number` | `Promise<void>` |
+| `beforeFind` | Before query execution | `builder: QueryBuilder<T>` | `Promise<void>` |
+| `afterFind` | After query execution | `result: T \| T[] \| null` | `Promise<void>` |
+| `beforeDelete` | Before record deletion | `id: PrimaryKey` | `Promise<boolean>` *(return `false` to cancel)* |
+| `afterDelete` | After record deletion | `id: PrimaryKey, purge: boolean` | `Promise<void>` |
+
+### CRUD & Soft Delete Operations
 
 ```typescript
-import { UserModel } from './models/UserModel';
+const users = new UserModel();
 
-const users = new UserModel();  // No DB parameter!
-
-// ── FIND ──
+// Find by ID
 const user = await users.find(1);
-const all = await users.findAll();
-const active = await users.findAll({ status: 'active' });
-const firstAdmin = await users.first({ role: 'admin' });
 
-// ── INSERT ──
+// Find All
+const activeUsers = await users.findAll({ status: 'active' });
+
+// Insert (Returns ID, or false if validation fails)
 const newId = await users.insert({
-  name: 'Jane Doe',
-  email: 'jane@example.com',
-  role: 'user'
+  name: 'Alice',
+  email: 'alice@example.com',
+  role: 'user',
+  status: 'active'
 });
 
-// ── UPDATE ──
-await users.update(1, { status: 'suspended' });
+// Save (Auto-selects insert vs update based on primary key)
+await users.save({ id: 1, name: 'Alice Smith' });
 
-// Update many at once
-await users.updateWhere(
-  { role: 'user', status: 'active' },
-  { status: 'suspended' }
-);
+// Soft Delete vs Hard Delete
+await users.delete(1);       // Soft delete (sets deleted_at)
+await users.delete(1, true); // Hard delete (purges row)
 
-// ── SAVE (upsert) ──
-await users.save({ id: 1, name: 'Updated' });     // UPDATE (has id)
-await users.save({ name: 'New User' });            // INSERT (no id)
-
-// ── DELETE ──
-await users.delete(5);           // Soft delete (sets deleted_at)
-await users.delete(5, true);     // Hard delete (removes row)
-
-// Delete many
-await users.deleteWhere({ status: 'suspended' });
-
-// ── SOFT DELETE UTILITIES ──
-const activeOnly = await users.findAll();                    // excludes deleted
-const withDeleted = await users.withDeleted().findAll();     // includes all
-const trashed = await users.onlyDeleted().findAll();        // only deleted
-
-// Restore soft-deleted
-await users.withDeleted().update(5, { deleted_at: null });
+// Include or isolate soft-deleted records
+const allRows = await users.withDeleted().findAll();
+const trashedOnly = await users.onlyDeleted().findAll();
 ```
 
-### Model + QueryBuilder Escape Hatch
+---
+
+## 5. Relations & Eager Loading
+
+Declare relational mappings between models to eliminate N+1 query bottlenecks.
+
+### Defining Relationships
 
 ```typescript
-// When you need complex queries not covered by model helpers
-const recent = await users.query()
-  .where('created_at', '>', '2024-01-01')
-  .whereLike('name', '%John%')
-  .orderBy('id', 'DESC')
-  .limit(10)
-  .get();
+export class UserModel extends BoltModel<User> {
+  protected override table = 'users';
 
-// Aggregation via model
-const totalUsers = await users.countAll();
-const activeCount = await users.countAllResults({ status: 'active' });
-```
-
-### Pagination & Chunking
-
-```typescript
-// Paginate
-const page = await users.paginate(1, 20);
-console.log(page.data);        // User[]
-console.log(page.pagination);  // { page: 1, perPage: 20, total: 150, lastPage: 8 }
-
-// Chunk (memory-safe for large datasets)
-await users.chunk(100, async (batch) => {
-  for (const user of batch) {
-    await processUser(user);  // your function
+  orders(row?: User) {
+    return this.hasMany<Order>('orders', 'user_id', row);
   }
-});
+
+  profile(row?: User) {
+    return this.hasOne<Profile>('profiles', 'user_id', row);
+  }
+}
+
+export class OrderModel extends BoltModel<Order> {
+  protected override table = 'orders';
+  protected override relations = {
+    user: { type: 'belongsTo' as const, table: 'users', foreignKey: 'user_id' }
+  };
+
+  user(row?: Order) {
+    return this.belongsTo<User>('users', 'user_id', row);
+  }
+}
 ```
 
-### Validation Errors
+### Eager Loading (`with()`) vs Lazy Loading (`hydrate()`)
 
 ```typescript
-try {
-  await users.insert({
-    name: 'A',           // too short (minLength: 2)
-    email: 'bad-email',  // invalid format
-    role: 'hacker'       // not in allowed array
-  });
-} catch (err) {
-  if (err instanceof ValidationFailedError) {
-    console.log(err.errors);
-    // [
-    //   { field: 'name', rule: 'minLength', message: 'name failed minLength' },
-    //   { field: 'email', rule: 'email', message: 'email failed email' },
-    //   { field: 'role', rule: 'inArray', message: 'role failed inArray' }
-    // ]
-  }
+// Eager Loading (Single optimized pass)
+const ordersWithUsers = await new OrderModel().query().with('user').get();
+
+// Lazy Loading on a hydrated model instance
+const userModel = new UserModel();
+const user = await userModel.find(1);
+if (user) {
+  const orders = await userModel.orders(user).get();
 }
 ```
 
 ---
 
-## Migrations
+## 6. Migrations & Schema Builder
 
-Migrations are versioned, reversible schema changes. Run automatically on `Bolt.create()`.
+Schema migrations govern database schema evolution. They execute automatically when target database versions increase.
 
-### Write a Migration
+### Creating a Migration
 
 ```typescript
-// database/migrations/001_users.ts
+// database/migrations/001_create_users.ts
 import { Migration } from '@bolt/sqlite';
 
-export const m001_users: Migration = {
+export const m001_create_users: Migration = {
   version: 1,
   name: 'create_users_table',
   up: async (schema, db) => {
     await schema.createTable('users', (t) => {
       t.increments('id');
-      t.string('email', 255).unique().notNullable();
       t.string('name', 100).notNullable();
+      t.string('email', 255).unique().notNullable();
       t.string('role', 20).default('user');
       t.string('status', 20).default('active');
-      t.timestamps();       // created_at, updated_at
-      t.softDeletes();      // deleted_at
+      t.timestamps();
+      t.softDeletes();
     });
   },
-  down: async (schema) => {
+  down: async (schema, db) => {
     await schema.dropTable('users');
   }
 };
 ```
 
+---
+
+## 7. Schema Introspection API
+
+Inspect live table metadata and schema definitions programmatically at runtime:
+
 ```typescript
-// database/migrations/002_orders.ts
-import { Migration } from '@bolt/sqlite';
+const db = Bolt.connection('default');
 
-export const m002_orders: Migration = {
-  version: 2,
-  name: 'create_orders_table',
-  up: async (schema, db) => {
-    await schema.createTable('orders', (t) => {
-      t.increments('id');
-      t.integer('user_id').notNullable();
-      t.decimal('total', 10, 2).default(0);
-      t.string('status', 20).default('pending');
-      t.text('notes').nullable();
-      t.timestamps();
-    });
+// List tables
+const tables = await db.introspect.tables();
 
-    // Add index separately
-    await db.execute('CREATE INDEX idx_orders_user ON orders(user_id)');
-  },
-  down: async (schema) => {
-    await schema.dropTable('orders');
-  }
-};
+// List column definitions
+const columns = await db.introspect.columns('users');
+
+// List foreign key relationships
+const fks = await db.introspect.foreignKeys('orders');
 ```
 
-### Migration Runner
+---
+
+## 8. ACID Transactions
+
+Group multiple SQL operations into an atomic unit. If any statement fails, all changes are automatically rolled back.
 
 ```typescript
-// database/bootstrap.ts
-import { Bolt } from '@bolt/sqlite';
-import { m001_users } from './migrations/001_users';
-import { m002_orders } from './migrations/002_orders';
+await Bolt.db().transaction(async (trx) => {
+  await trx.execute('UPDATE accounts SET balance = balance - 100 WHERE id = ?', [acc1]);
+  await trx.execute('UPDATE accounts SET balance = balance + 100 WHERE id = ?', [acc2]);
+  await trx.execute('INSERT INTO logs (action) VALUES (?)', ['transfer']);
+});
+```
 
+---
+
+## 9. Validation System
+
+### Built-in Validation Rules
+
+| Rule | Syntax Example | Description |
+| :--- | :--- | :--- |
+| `required` | `rule.required()` | Field must be defined and non-empty. |
+| `email` | `rule.email()` | Must be a valid email address format. |
+| `minLength` | `rule.minLength(3)` | Minimum string length requirement. |
+| `maxLength` | `rule.maxLength(100)` | Maximum string length limit. |
+| `numeric` | `rule.numeric()` | Value must be numeric. |
+| `integer` | `rule.integer()` | Value must be a valid integer. |
+| `inArray` | `rule.inArray(['admin', 'user'])` | Value must exist within whitelist array. |
+| `unique` | `rule.unique('users', 'email')` | Checks table column for uniqueness in SQLite DB. |
+| `regex` | `rule.regex(/^[A-Z0-9]+$/)` | Matches regex pattern. |
+| `date` | `rule.date()` | Value must be a valid ISO date string. |
+
+### Validation Flow Example
+
+```typescript
+const model = new UserModel();
+
+// Non-throwing evaluation
+const result = await model.insert(invalidData);
+if (result === false) {
+  console.log('Errors:', model.errors());
+}
+
+// Exception-throwing evaluation
+try {
+  await model.validateOrFail(invalidData);
+} catch (err) {
+  if (err instanceof ValidationFailedError) {
+    console.error(err.errors);
+  }
+}
+```
+
+---
+
+## 10. Offline & Sync Engine
+
+Track local data mutations and synchronize with a remote REST/GraphQL backend endpoint automatically when online.
+
+```typescript
 const db = await Bolt.create({
   dbName: 'app',
   driver: 'capacitor',
-  version: 2,                       // target version
-  migrations: [m001_users, m002_orders]
+  sync: {
+    enabled: true,
+    endpoint: 'https://api.example.com/v1/sync',
+    conflictStrategy: 'merge', // Options: 'local' | 'remote' | 'merge' | 'manual'
+    autoSync: true,            // Auto sync on network restore
+    syncInterval: 300_000,     // 5-minute background sync timer
+  }
 });
 
-// Migrations run automatically. Only pending ones execute.
-// History stored in _bolt_migrations table.
-```
-
-### Schema Builder Reference
-
-```typescript
-await schema.createTable('products', (t) => {
-  t.increments('id');                          // INTEGER PRIMARY KEY AUTOINCREMENT
-  t.string('sku', 50).unique().notNullable();  // VARCHAR(50)
-  t.string('name', 255).index();               // VARCHAR(255) + index hint
-  t.text('description').nullable();            // TEXT
-  t.integer('stock').default(0);               // INTEGER
-  t.decimal('price', 10, 2).default(0.00);     // DECIMAL(10,2)
-  t.boolean('is_active');                      // INTEGER (0/1)
-  t.json('metadata').nullable();               // TEXT (JSON stored as string)
-  t.timestamps();                              // created_at, updated_at
-  t.softDeletes();                             // deleted_at
-});
-
-await schema.alterTable('products', (t) => {
-  t.addColumn('category_id', 'INTEGER');
-  t.dropColumn('old_column');
-});
-
-await schema.dropTable('temp_table');
+// Trigger manual sync pass
+const syncResult = await db.sync();
+console.log(`Pushed: ${syncResult.pushed}, Pulled: ${syncResult.pulled}`);
 ```
 
 ---
 
-## Transactions
+## 11. Multi-Database Setup
 
-Wrap multiple operations in ACID transactions. Auto-rollback on error.
-
-```typescript
-import { Bolt } from '@bolt/sqlite';
-
-await Bolt.db().transaction(async (trx) => {
-  // Deduct inventory
-  await trx.execute(
-    'UPDATE inventory SET qty = qty - ? WHERE sku = ? AND qty >= ?',
-    [1, 'SKU-123', 1]
-  );
-
-  // Create order
-  const orderResult = await trx.execute(
-    'INSERT INTO orders (user_id, total, status) VALUES (?, ?, ?)',
-    [userId, 99.99, 'paid']
-  );
-
-  // Create order items
-  await trx.execute(
-    'INSERT INTO order_items (order_id, sku, qty, price) VALUES (?, ?, ?, ?)',
-    [orderResult.lastId, 'SKU-123', 1, 99.99]
-  );
-
-  // Audit log
-  await trx.execute(
-    'INSERT INTO audit (action, ref_id, details) VALUES (?, ?, ?)',
-    ['order_created', orderResult.lastId, JSON.stringify({ sku: 'SKU-123' })]
-  );
-});
-// If any step throws, entire transaction rolls back.
-// If all succeed, auto-committed.
-```
-
-### Transaction with QueryBuilder
+Register and access separate SQLite database files simultaneously:
 
 ```typescript
-await Bolt.db().transaction(async (trx) => {
-  // Use trx.query() and trx.execute() — same API as Bolt.db()
-  const user = await trx.query('SELECT * FROM users WHERE id = ?', [1]);
-
-  // Or use raw execute
-  await trx.execute('UPDATE users SET balance = balance - ? WHERE id = ?', [10, 1]);
-});
-```
-
----
-
-## Validation
-
-Validation runs automatically before `insert()` and `update()` on models.
-
-### Built-in Rules
-
-```typescript
-import { rule } from '@bolt/sqlite';
-
-protected validationRules = {
-  // Required field
-  name: [rule.required()],
-
-  // String length
-  name: [rule.minLength(2), rule.maxLength(100)],
-
-  // Email format
-  email: [rule.required(), rule.email()],
-
-  // Unique in database (async check)
-  email: [rule.unique('users', 'email')],
-
-  // Enum / whitelist
-  role: [rule.required(), rule.inArray(['admin', 'user', 'editor'])],
-
-  // Numeric
-  age: [rule.numeric(), rule.integer()],
-
-  // Regex
-  phone: [rule.regex(/^\+?[\d\s-]{10,}$/)],
-
-  // Date
-  birth_date: [rule.date()]
-};
-```
-
-### Custom Rules
-
-```typescript
-import { ValidationRule } from '@bolt/sqlite';
-
-const rule = {
-  // ... built-in rules ...
-
-  strongPassword: (msg?: string): ValidationRule => ({
-    name: 'strongPassword',
-    message: msg || 'Password must be 8+ chars with uppercase, lowercase, and number',
-    test: (v: any) => /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,}$/.test(String(v))
-  }),
-
-  // Async custom rule
-  existsInTable: (table: string, column: string, msg?: string): ValidationRule => ({
-    name: 'existsInTable',
-    message: msg,
-    test: async (v: any, db?: any) => {
-      if (!db) return true;
-      const row = await db.query(`SELECT 1 FROM "${table}" WHERE "${column}" = ? LIMIT 1`, [v]);
-      return row.length > 0;
-    }
-  })
-};
-```
-
-### Skip Validation
-
-```typescript
-class BulkImportModel extends BoltModel<Record> {
-  protected skipValidation = true;  // bypass for trusted bulk ops
-}
-```
-
----
-
-## Error Handling
-
-Always catch `BoltError` subclasses for precise handling.
-
-```typescript
-import {
-  BoltError,
-  ConnectionError,
-  QueryError,
-  UniqueViolationError,
-  ValidationFailedError,
-  MigrationError
-} from '@bolt/sqlite';
-
-try {
-  await users.insert({ email: 'dup@example.com' });
-} catch (err) {
-  if (err instanceof ConnectionError) {
-    showToast('Database connection lost. Please restart app.');
-  }
-  else if (err instanceof UniqueViolationError) {
-    showToast(`${err.column} "${err.value}" already exists`);
-  }
-  else if (err instanceof ValidationFailedError) {
-    showFormErrors(err.errors);  // map to UI fields
-  }
-  else if (err instanceof QueryError) {
-    console.error('SQL:', err.sql);
-    console.error('Params:', err.params);
-    logToSentry(err);
-  }
-  else if (err instanceof MigrationError) {
-    console.error('Migration failed:', err.message);
-    // App may need reinstall
-  }
-  else {
-    throw err;  // unknown — rethrow
-  }
-}
-```
-
----
-
-## Multi-Database
-
-Use multiple SQLite databases in one app.
-
-```typescript
-// bootstrap.ts
-const mainDb = await Bolt.create({
-  dbName: 'app_main',
-  driver: 'capacitor',
-  version: 1
-});
-
-const cacheDb = await Bolt.create({
-  dbName: 'app_cache',
-  driver: 'capacitor',
-  version: 1
-});
+const mainDb = await Bolt.create({ dbName: 'main_app', driver: 'capacitor' });
+const logsDb = await Bolt.create({ dbName: 'system_logs', driver: 'capacitor' });
 
 Bolt.addConnection('default', mainDb);
-Bolt.addConnection('cache', cacheDb);
+Bolt.addConnection('logs', logsDb);
 
-// Models auto-resolve by dbGroup
-class UserModel extends BoltModel<User> {
-  protected table = 'users';
-  protected dbGroup = 'default';  // implied, explicit for clarity
-}
-
-class SessionModel extends BoltModel<Session> {
-  protected table = 'sessions';
-  protected dbGroup = 'cache';    // separate DB
-}
-
-// Standalone queries on named connection
-const cacheRows = await Bolt.connection('cache').table('sessions').where('expired', 0).get();
-```
-
----
-
-## Advanced Patterns
-
-### Type-Strict Queries
-
-```typescript
-interface Product {
-  id: number;
-  name: string;
-  price: number;
-  category_id: number;
-}
-
-// Full IntelliSense on field names
-const cheap = await Bolt.table<Product>('products')
-  .select('id', 'name', 'price')     // autocomplete suggests these
-  .where('price', '<', 100)          // autocomplete: price, name, category_id
-  .where('category_id', 5)
-  .orderBy('name', 'ASC')
-  .get();                             // Product[]
-```
-
-### Reusable Query Templates
-
-```typescript
-// Base query for active products
-const baseQuery = Bolt.table<Product>('products')
-  .where('status', 'active')
-  .where('stock', '>', 0);
-
-// Clone and extend for different views
-const cheapProducts = baseQuery.clone().where('price', '<', 50).get();
-const premiumProducts = baseQuery.clone().where('price', '>', 500).get();
-```
-
-### Raw + Builder Hybrid
-
-```typescript
-// Complex report using raw, then model for updates
-const report = await Bolt.query<{ month: string; revenue: number }>(`
-  SELECT strftime('%Y-%m', created_at) as month, SUM(total) as revenue
-  FROM orders
-  WHERE status = 'completed'
-  GROUP BY month
-  ORDER BY month DESC
-`);
-
-// Update flagged records via model
-const flagged = await Bolt.table('orders').whereRaw('total > 10000').get();
-for (const order of flagged) {
-  await orderModel.update(order.id, { flagged: true });
-}
-```
-
-### Seed Data
-
-```typescript
-// In a migration or bootstrap script
-async function seedUsers() {
-  const users = new UserModel();
-  const count = await users.countAll();
-  if (count === 0) {
-    await users.insertBatch([
-      { name: 'System', email: 'system@app.com', role: 'admin' },
-      { name: 'Demo User', email: 'demo@example.com', role: 'user' }
-    ]);
-  }
+export class LogModel extends BoltModel<LogEntry> {
+  protected override table = 'logs';
+  protected override dbGroup = 'logs'; // Directs queries to 'system_logs' DB
 }
 ```
 
 ---
 
-## Capacitor Integration
+## 12. Native Android Integration (Java / Kotlin)
 
-### Android Setup
+Query your SQLite database natively from Android background services without waking up the JavaScript runtime:
 
-```bash
-npm install @capacitor-community/sqlite
-npx cap sync android
+### ☕ Java Example
+```java
+import com.bolt.sqlite.BoltNativeDb;
+import org.json.JSONArray;
+
+// Read setting value directly
+String flag = BoltNativeDb.open(context, "app_v1")
+    .getValue("settings", "value", "option", "sync_enabled");
+
+// Query JSON Array
+JSONArray users = BoltNativeDb.open(context, "app_v1")
+    .queryJSON("SELECT * FROM users WHERE status = ?", new String[]{ "active" });
 ```
 
-`capacitor.config.ts`:
-```typescript
-export default {
-  plugins: {
-    SQLite: {
-      iosDatabaseLocation: 'Library/Databases',
-      iosKeychainPrefix: 'app',
-      androidIsEncryption: false,
-      androidBiometric: {
-        biometricAuth: false,
-        biometricTitle: 'Authentication',
-        biometricSubTitle: 'Access your database'
-      }
-    }
-  }
-};
+### 🅆 Kotlin Example
+```kotlin
+import com.bolt.sqlite.BoltNativeDb
+
+// Read value directly
+val flag = BoltNativeDb.open(context, "app_v1")
+    .getValue("settings", "value", "option", "sync_enabled")
+
+// Query JSON
+val users = BoltNativeDb.open(context, "app_v1")
+    .queryJSON("SELECT * FROM users WHERE status = ?", arrayOf("active"))
 ```
 
-### iOS Setup
+---
 
-```bash
-npx cap sync ios
-```
+## 13. Developer Experience & Debugging
 
-No additional config needed for basic usage.
-
-### Web Fallback (Testing Only)
-
-For browser testing before v1.1 WebDriver:
 ```typescript
 const db = await Bolt.create({
-  dbName: 'test',
-  driver: 'capacitor',  // still use capacitor driver
-  version: 1
+  dbName: 'app',
+  driver: 'capacitor',
+  debug: true, // Enables verbose SQL logging
+  retry: {
+    maxRetries: 5,
+    delayMs: 100,
+    backoff: 'exponential' // Retries on DB lock errors: 100ms, 200ms, 400ms, 800ms...
+  }
 });
-// Capacitor's web implementation uses IndexedDB fallback automatically
 ```
 
 ---
 
-## Troubleshooting
+## 14. Error Handling & Troubleshooting
 
-| Symptom | Cause | Fix |
-|---------|-------|-----|
-| `ConnectionError: No database connection registered` | `Bolt.addConnection()` not called | Ensure bootstrap runs before any model instantiation |
-| `DatabaseLockedError` | Concurrent writes on same connection | Use `transaction()` or queue writes |
-| `QueryError: no such table` | Migration not run | Check `version` matches highest migration version |
-| `ValidationFailedError` on every insert | `allowedFields` empty | Set `protected allowedFields = ['col1', 'col2']` |
-| `UniqueViolationError` on update | `rule.unique()` checks all rows | Add `.where('id', '!=', currentId)` in custom validation |
-| TypeScript `any` on query results | No interface passed | Use `Bolt.table<MyInterface>('table')` |
-| Changes to plugin not reflecting | `npm` cached old build | Run `npm run build` in plugin, then `npm install ../sqlite-bolt` in app |
-| Capacitor build fails | `@capacitor-community/sqlite` not installed | `npm install @capacitor-community/sqlite` in app project |
+```
+BoltError (Base Class)
+ ├── ConnectionError (Missing/Failed connection)
+ ├── MigrationError (Migration execution failure)
+ ├── ValidationFailedError (Failed model validation)
+ └── QueryError (SQL execution error)
+      └── UniqueViolationError (Duplicate UNIQUE constraint)
+```
+
+| Symptom | Cause | Solution |
+| :--- | :--- | :--- |
+| `ConnectionError: No connection registered` | `Bolt.addConnection()` was not called before querying. | Execute `Bolt.addConnection('default', db)` during bootstrap. |
+| `DatabaseLockedError` | Concurrent write lock contention. | Configure `retry` exponential backoff in `BoltConfig`. |
+| `QueryError: no such table` | Schema migration was not applied. | Verify target `version` in `Bolt.create()` matches latest migration version. |
+| `ValidationFailedError` on valid properties | Property missing from `allowedFields`. | Add field name to `protected override allowedFields = [...]`. |
 
 ---
 
-## Quick Reference Card
+## 15. Quick Reference Card
 
 ```typescript
-// ── Registry ──
+// ── Static Registry ──
 Bolt.addConnection('default', db);
-Bolt.connection('default');
 Bolt.db();
+Bolt.connection('custom');
 
-// ── Standalone Builder ──
-Bolt.table('users').where('x', 'y').get();
-Bolt.table('users').insert(data);
-Bolt.table('users').set(data).where('id', 1).update();
-Bolt.table('users').where('id', 1).delete();
-Bolt.query<T>(sql, params);
-Bolt.execute(sql, params);
+// ── QueryBuilder ──
+await Bolt.table('users').select('id', 'name').where('status', 'active').get();
+await Bolt.table('users').insert({ name: 'Alice', email: 'a@x.com' });
+await Bolt.table('users').set('status', 'suspended').where('id', 1).update();
+await Bolt.table('users').where('id', 1).delete();
 
 // ── Model ──
-const m = new UserModel();
-m.find(id);
-m.findAll(where?);
-m.first(where?);
-m.insert(data);
-m.update(id, data);
-m.save(data);
-m.delete(id, purge?);
-m.query().where('x', 'y').get();
-m.paginate(1, 20);
-m.chunk(100, callback);
+const users = new UserModel();
+await users.find(id);
+await users.findAll({ status: 'active' });
+await users.insert(data);
+await users.update(id, data);
+await users.delete(id);
+await users.paginate(1, 20);
 
 // ── Transaction ──
-Bolt.db().transaction(async (trx) => {
-  await trx.execute(sql, params);
-  await trx.query(sql, params);
+await Bolt.db().transaction(async (trx) => {
+  await trx.execute(sql1, params1);
+  await trx.execute(sql2, params2);
 });
-
-// ── Schema ──
-schema.createTable('t', (t) => { t.increments('id'); t.string('name'); });
-schema.alterTable('t', (t) => { t.addColumn('x', 'TEXT'); });
-schema.dropTable('t');
 ```
-
----
-
-**Status:** v1.0 Documentation Complete  
-**Next:** Lock v1.1 architecture or report implementation bugs.
